@@ -46,6 +46,10 @@ sudo apt update
 sudo apt install python3-colcon-common-extensions python3-rosdep ros-humble-joy
 
 source /opt/ros/humble/setup.bash
+if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then
+  sudo rosdep init
+fi
+rosdep update
 mkdir -p ~/px4_ros2_ws/src
 cd ~/px4_ros2_ws/src
 git clone --branch release/1.17 https://github.com/PX4/px4_msgs.git
@@ -110,7 +114,7 @@ Linux က controller ကို joystick အဖြစ် တွေ့ပါက de
 ```bash
 source /opt/ros/humble/setup.bash
 ros2 run joy joy_enumerate_devices
-ros2 run joy joy_node
+ros2 run joy joy_node --ros-args -p autorepeat_rate:=20.0
 ```
 
 Terminal အသစ်တွင် stick ကို ရွှေ့ပြီး button နှိပ်ကြည့်ပါ။ `axes[]` နှင့် `buttons[]` index များသည် controller အလိုက်မတူနိုင်သောကြောင့် မိမိစက်တွင် ထွက်လာသည့်တန်ဖိုးများကို အခြေခံပါ။
@@ -122,7 +126,7 @@ ros2 topic echo /joy
 
 ## $\color{red}{\text{နမူနာ ROS 2 node}}$
 
-အောက်ပါ code ကို `~/px4_ros2_ws/joy_to_px4.py` အဖြစ် သိမ်းပါ။ Joystick axis/button mapping မကိုက်ပါက `forward_axis`၊ `right_axis`၊ `up_axis` နှင့် `deadman_button` တန်ဖိုးများကို ပြင်ပါ။ Deadman button ကို ဖိထားမှသာ ရွေ့လျားမှုကို ပို့သည်။ Joy message မရတော့သည်မှာ 0.5 စက္ကန့်ကျော်လျှင် velocity ကို သုညထားသည်။
+အောက်ပါ code ကို `~/px4_ros2_ws/joy_to_px4.py` အဖြစ် သိမ်းပါ။ Joystick axis/button mapping မကိုက်ပါက `forward_axis`၊ `right_axis`၊ `up_axis`၊ သက်ဆိုင်ရာ `*_sign` နှင့် `deadman_button` parameter များကို ပြင်ပါ။ Deadman button ကို ဖိထားမှသာ ရွေ့လျားမှုကို ပို့သည်။ Joy message မရတော့သည်မှာ 0.5 စက္ကန့်ကျော်လျှင် velocity ကို သုညထားသည်။ Input publisher သည် 10 Hz ထက်မြန်သော rate ဖြင့် message များ ဆက်တိုက်ပို့နေရမည်။ Stick drift လျော့စေရန် `deadzone` ကိုလည်း သုံးထားသည်။
 
 ```python
 import math
@@ -139,16 +143,24 @@ class JoyToPx4(Node):
         self.declare_parameter("forward_axis", 1)
         self.declare_parameter("right_axis", 0)
         self.declare_parameter("up_axis", 3)
+        self.declare_parameter("forward_sign", 1.0)
+        self.declare_parameter("right_sign", 1.0)
+        self.declare_parameter("up_sign", 1.0)
         self.declare_parameter("deadman_button", 0)
         self.declare_parameter("max_xy_speed", 1.0)
         self.declare_parameter("max_z_speed", 0.5)
+        self.declare_parameter("deadzone", 0.1)
 
         self.forward_axis = self.get_parameter("forward_axis").value
         self.right_axis = self.get_parameter("right_axis").value
         self.up_axis = self.get_parameter("up_axis").value
+        self.forward_sign = self.get_parameter("forward_sign").value
+        self.right_sign = self.get_parameter("right_sign").value
+        self.up_sign = self.get_parameter("up_sign").value
         self.deadman_button = self.get_parameter("deadman_button").value
         self.max_xy_speed = self.get_parameter("max_xy_speed").value
         self.max_z_speed = self.get_parameter("max_z_speed").value
+        self.deadzone = self.get_parameter("deadzone").value
         self.axes = []
         self.deadman = False
         self.last_joy_time = None
@@ -165,7 +177,7 @@ class JoyToPx4(Node):
     def joy_callback(self, msg):
         self.axes = list(msg.axes)
         self.deadman = (
-            self.deadman_button < len(msg.buttons)
+            0 <= self.deadman_button < len(msg.buttons)
             and msg.buttons[self.deadman_button] == 1
         )
         self.last_joy_time = self.get_clock().now()
@@ -173,7 +185,8 @@ class JoyToPx4(Node):
     def axis(self, index):
         if index < 0 or index >= len(self.axes):
             return 0.0
-        return max(-1.0, min(1.0, float(self.axes[index])))
+        value = max(-1.0, min(1.0, float(self.axes[index])))
+        return 0.0 if abs(value) < self.deadzone else value
 
     def publish_setpoints(self):
         now = self.get_clock().now()
@@ -184,9 +197,21 @@ class JoyToPx4(Node):
         )
         enabled = self.deadman and joy_is_fresh
 
-        vx = self.axis(self.forward_axis) * self.max_xy_speed if enabled else 0.0
-        vy = self.axis(self.right_axis) * self.max_xy_speed if enabled else 0.0
-        vz = -self.axis(self.up_axis) * self.max_z_speed if enabled else 0.0
+        vx = (
+            self.forward_sign * self.axis(self.forward_axis) * self.max_xy_speed
+            if enabled
+            else 0.0
+        )
+        vy = (
+            self.right_sign * self.axis(self.right_axis) * self.max_xy_speed
+            if enabled
+            else 0.0
+        )
+        vz = (
+            -self.up_sign * self.axis(self.up_axis) * self.max_z_speed
+            if enabled
+            else 0.0
+        )
 
         mode = OffboardControlMode()
         mode.timestamp = timestamp
@@ -235,7 +260,11 @@ Agent၊ SITL နှင့် `/joy` publisher အလုပ်လုပ်နေ
 ```bash
 source /opt/ros/humble/setup.bash
 source ~/px4_ros2_ws/install/setup.bash
-python3 ~/px4_ros2_ws/joy_to_px4.py
+python3 ~/px4_ros2_ws/joy_to_px4.py --ros-args \
+  -p forward_axis:=1 \
+  -p right_axis:=0 \
+  -p up_axis:=3 \
+  -p deadman_button:=0
 ```
 
 Message များထွက်နေကြောင်း စစ်ပါ။
@@ -245,7 +274,7 @@ ros2 topic echo /fmu/in/offboard_control_mode
 ros2 topic echo /fmu/in/trajectory_setpoint
 ```
 
-QGroundControl တွင် **SITL x500** ကိုသာ ချိတ်ထားကြောင်းအတည်ပြုပြီး၊ setpoint stream အနည်းဆုံး 1 секунд ажиллаж байгааг хүлээсний дараа Offboard mode болон arming-ийг зөвхөн simulation дээр гараар туршина. Өөрийн joystick mapping зөв гэдгийг эхлээд газарт/бага хөдөлгөөнөөр шалга. Controller-ийг суллахад node velocity သုညပို့သော်လည်း PX4 Offboard heartbeat ဆက်ရှိနေမည်။
+QGroundControl တွင် **SITL x500** ကိုသာ ချိတ်ထားကြောင်း အတည်ပြုပြီး၊ setpoint stream အနည်းဆုံး 1 စက္ကန့်ထက်ပို၍ ဆက်လက်ထွက်နေကြောင်း စစ်ဆေးပြီးနောက် Offboard mode နှင့် arming ကို simulation ထဲတွင်သာ ကိုယ်တိုင်စမ်းပါ။ Joystick mapping မှန်ကန်ကြောင်း အရင်စစ်ပြီး၊ လှုပ်ရှားမှုအနည်းငယ်ဖြင့် စမ်းပါ။ Controller ကိုလွှတ်လိုက်ပါက node က velocity သုည ပို့သော်လည်း PX4 Offboard heartbeat ဆက်ရှိနေမည်။
 
 စမ်းသပ်မှုပြီးလျှင် QGroundControl မှ Offboard မှ safe mode သို့ ပြန်ပြောင်းပြီးမှ node ကို `Ctrl+C` ဖြင့်ရပ်ပါ။ Node ရပ်ချိန် Offboard mode ထဲတွင် ဆက်နေနေပါက PX4 က Offboard loss failsafe ကို လုပ်ဆောင်မည်ဖြစ်သည်။
 

@@ -25,7 +25,7 @@ gz sim --versions
 gz sim --force-version 8 shapes.sdf
 ```
 
-Gazebo GUI ၏ **Plugins** menu ကိုဖွင့်၍ OpenXR/VR plugin ကို ရွေးပါ။ Plugin မပေါ်ပါက interaction ကို စမ်းမည့်အစား plugin build log၊ `.so` directory နှင့် `GZ_GUI_PLUGIN_PATH` ကို [01_how_to_configure.md](./01_how_to_configure.md) дагуу шалгаарай။ OpenXR runtime headset болон controller-ийг таньж, plugin-д pose/button input өгч байгаа эсэхийг мөн шалгана.
+Gazebo GUI ၏ **Plugins** menu ကိုဖွင့်၍ OpenXR/VR plugin ကို ရွေးပါ။ Plugin မပေါ်ပါက interaction ကို စမ်းမည့်အစား plugin build log၊ `.so` directory နှင့် `GZ_GUI_PLUGIN_PATH` ကို [01_how_to_configure.md](./01_how_to_configure.md) ကိုကြည့်ပြီး စစ်ပါ။ OpenXR runtime က headset နှင့် controller ကို အသိအမှတ်ပြုပြီး plugin သို့ pose/button input ပို့နေကြောင်းလည်း စစ်ဆေးပါ။
 
 ## $\color{red}{\text{ROS 2 Humble မှ controller input ကို စစ်ရန်}}$
 
@@ -58,12 +58,13 @@ ros2 topic echo /joy
 Plugin က `/joy` မဟုတ်သည့် topic ထုတ်ပါက ၎င်း၏ type နှင့် message ကို အရင်ရှာပါ။
 
 ```bash
+PLUGIN_TOPIC="/replace/with/actual/topic"
 ros2 topic list -t
-ros2 topic info /<plugin_input_topic>
-ros2 topic echo /<plugin_input_topic>
+ros2 topic info "$PLUGIN_TOPIC"
+ros2 topic echo "$PLUGIN_TOPIC"
 ```
 
-`/<plugin_input_topic>` နေရာတွင် plugin က အမှန်တကယ် ထုတ်ပေးသည့် topic ကို အစားထိုးပါ။ Controller pose ကို `geometry_msgs/msg/PoseStamped` အဖြစ်ထုတ်ပေးခြင်းနှင့် button များကို `sensor_msgs/msg/Joy` အဖြစ်ထုတ်ပေးခြင်းကဲ့သို့ output များကို plugin documentation ဖြင့် အတည်ပြုပါ။
+`PLUGIN_TOPIC` ကို plugin က အမှန်တကယ် ထုတ်ပေးသည့် topic ဖြင့် အစားထိုးပါ။ Controller pose ကို `geometry_msgs/msg/PoseStamped` အဖြစ်ထုတ်ပေးခြင်းနှင့် button များကို `sensor_msgs/msg/Joy` အဖြစ်ထုတ်ပေးခြင်းကဲ့သို့ output များကို plugin documentation ဖြင့် အတည်ပြုပါ။
 
 ## $\color{red}{\text{Gazebo interaction ကို စမ်းသပ်ရန်}}$
 
@@ -97,6 +98,12 @@ flowchart LR
 ## $\color{red}{\text{PX4 အတွက် နယ်ပယ်ခွဲခြားချက်}}$
 
 ဤ interaction စမ်းသပ်မှုတွင် PX4 command topic များသို့ publish မလုပ်ပါ။ PX4 v1.17 SITL နှင့် ROS 2 Humble ချိတ်ဆက်မှုကို သီးခြားစစ်လိုပါက Micro XRCE-DDS Agent နှင့် PX4 SITL ကို ဖွင့်ပြီး `/fmu/` topic များ ရှိမရှိသာ ကြည့်ပါ။ Controller input ကို PX4 သို့ ပို့မည့် နမူနာကို [03_teleoperation.md](./03_teleoperation.md) တွင် ဖော်ပြထားသည်။
+
+```bash
+source /opt/ros/humble/setup.bash
+ros2 topic list
+ros2 topic echo /fmu/out/vehicle_status --qos-reliability best_effort --once
+```
 
 References:
 - [01_how_to_configure.md](./01_how_to_configure.md)
