@@ -1,86 +1,69 @@
-# $\color{#00c853}{\text{VR သုံးသူ၏ Human Model ကို Simulator ထဲ ထည့်ခြင်း}}$
+# $\color{#00c853}{\text{VR သုံးသူ၏ Fake Human Model ကို Simulator ထဲ ထည့်ခြင်း}}$
 
-**ရပါတယ်။** Gazebo Harmonic world ထဲတွင် လူပုံစံကို ရုပ်ပုံအဖြစ် ထည့်နိုင်ပြီး၊ လိုအပ်ပါက VR headset/controller ရွေ့လျားမှုအတိုင်းလည်း လိုက်လှုပ်ရှားစေနိုင်သည်။ သို့သော် ပုံသေ model၊ ကြိုတင်သတ်မှတ်ထားသော animation နှင့် live VR avatar တို့သည် အဆင့်ကွာခြားသည်။
+**ရပါတယ်။** Body tracking နဲ့ IK မလိုပါ။ Gazebo ထဲက fake avatar ရဲ့ ဦးခေါင်းကို VR headset pose၊ လက်တွေကို controller pose အတိုင်း ရွှေ့ပြီး ကိုယ်ထည်ကို ရိုးရှင်းတဲ့ fixed pose အဖြစ်ထားနိုင်ပါတယ်။ လူပုံစံအပြည့်အဝ လှုပ်ရှားသလို မြင်ရမည်မဟုတ်ပေမဲ့ VR သုံးသူကို simulator ထဲမှာ ကိုယ်စားပြုဖို့ လုံလောက်နိုင်ပါတယ်။
 
-## $\color{red}{\text{ရွေးချယ်နိုင်သည့် နည်းလမ်းများ}}$
+## $\color{red}{\text{လိုအပ်ချက်အလိုက် လုပ်ဆောင်ပုံ}}$
 
-| ရည်ရွယ်ချက် | နည်းလမ်း | ကန့်သတ်ချက် |
+| ရည်ရွယ်ချက် | နည်းလမ်း | လိုအပ်ချက် |
 |---|---|---|
-| လူပုံစံကို မြင်ကွင်းထဲတွင် ထားရန် | SDF human model ကို world ထဲ include/spawn လုပ်ရန် | မိမိ pose အတိုင်း အလိုအလျောက်မရွေ့ပါ |
-| ကြိုတင်သတ်မှတ်ထားသော လှုပ်ရှားမှု ပြရန် | Gazebo `actor` နှင့် `.dae`/`.bvh` skeleton animation သုံးရန် | Scripted trajectory ဖြစ်ပြီး physics collision မရှိပါ |
-| Headset နှင့် လက်/controller အတိုင်း လိုက်စေရန် | OpenXR pose များကို ROS 2 သို့မဟုတ် Gazebo plugin မှတစ်ဆင့် avatar pose သို့ ပြောင်းရန် | ကိုက်ညီသော bridge/plugin နှင့် frame conversion လိုအပ်သည် |
-| ကိုယ်တစ်ခုလုံး၏ လှုပ်ရှားမှုကို ပြရန် | Body tracker များ သို့မဟုတ် IK ဖြင့် ခန့်မှန်းထားသော skeleton ကို အသုံးပြုရန် | Headset/controller သာရှိလျှင် ခြေထောက်နှင့် ကိုယ်ခန္ဓာ pose အမှန်ကို မရနိုင်ပါ |
+| လူပုံစံကို ကမ္ဘာထဲမှာထားရန် | SDF human model ကို ထည့်ရန် | model mesh နှင့် pose |
+| Head/controller အတိုင်း ရွှေ့ရန် | HMD ကို head၊ controller များကို လက်အဖြစ် map လုပ်ရန် | OpenXR pose input နှင့် Gazebo update plugin/node |
+| Fake ကိုယ်ထည် ပြရန် | ရိုးရှင်းသော torso၊ လက်မောင်းနှင့် hand visuals သုံးရန် | fixed offset များသာ၊ body tracking/IK မလို |
+| နာမည်ပြရန် | Entity name သို့မဟုတ် floating text label သုံးရန် | ကမ္ဘာထဲတွင် ပေါ်စေလိုလျှင် rendering/GUI plugin လို |
 
-Gazebo ၏ `actor` သည် animated visual အတွက် အဆင်ပြေသည်။ Actor များသည် gravity/contact force မခံယူသဖြင့် ပုံမှန်အားဖြင့် အခြား object များနှင့် တိုက်မိမှု simulation မလုပ်ပါ။ Avatar က object ကို ကိုင်တွယ်ခြင်း သို့မဟုတ် collision ဖြစ်စေလိုပါက physics-enabled link/joint များပါသော SDF model နှင့် သီးခြား control logic လိုအပ်သည်။
+Gazebo Harmonic `actor` သည် ကြိုတင်သတ်မှတ်ထားသော skeleton animation အတွက်ဖြစ်သည်။ ဤလိုအပ်ချက်အတွက် scripted actor animation မလိုဘဲ visual-only model ကို pose update လုပ်ခြင်းက ပိုရိုးရှင်းသည်။ Model ကို physics collision မပါဘဲထားလျှင် fake avatar က robot/simulation ကို မတော်တဆ မထိခိုက်စေပါ။
 
-## $\color{red}{\text{တည်ငြိမ်နေသော Human Model ထည့်ရန်}}$
+## $\color{red}{\text{Human Model နှင့် နာမည်ကို ထည့်ရန်}}$
 
-ကိုယ်ပိုင် သို့မဟုတ် အသုံးပြုခွင့်ရှိသည့် human model ကို SDF model အဖြစ် Gazebo world ထဲ ထည့်ပါ။ အောက်ပါသည် world SDF ထဲတွင် `model://human_model` model ကို နေရာချထားသည့် ဥပမာဖြစ်သည်။
+SDF world ထဲတွင် လူ model ကို include လုပ်ပြီး instance name သတ်မှတ်နိုင်သည်။
 
 ```xml
 <include>
   <uri>model://human_model</uri>
+  <name>vr_user_asha</name>
   <pose>0 0 0 0 0 0</pose>
 </include>
 ```
 
-`human_model` နေရာတွင် မိမိ၏ model URI သို့မဟုတ် model directory ကို ထည့်ပါ။ Mesh, scale နှင့် pose ကို SDF model configuration နှင့် ကိုက်ညီအောင်ပြင်ပါ။ ရုပ်ပုံပြရန်သာလိုပါက collision geometry မပါသည့် visual-only model ကို သုံးခြင်းဖြင့် မလိုအပ်သော collision များကို ရှောင်နိုင်သည်။
+`model://human_model` နေရာတွင် မိမိအသုံးပြုမည့် model URI သို့မဟုတ် SDF model ကို ထည့်ပါ။ `vr_user_asha` သည် Gazebo Entity Tree ထဲတွင် ပေါ်မည့် entity name ဥပမာဖြစ်သည်။ ၎င်းကို world ထဲက လူပုံအပေါ်တွင် စာတန်းအဖြစ် ပြချင်ပါက SDF entity name တစ်ခုတည်းနဲ့ မလုံလောက်ပါ။
 
-## $\color{red}{\text{Actor ဖြင့် ကြိုတင် Animation ပြရန်}}$
+မြင်ကွင်းထဲတွင် ဦးခေါင်းအပေါ်ကပ်၍ လိုက်နေသော နာမည်စာတန်းလိုပါက Gazebo Rendering `Text` geometry ကို သုံးသည့် rendering/GUI plugin ဖြင့် billboard text ဖန်တီးပြီး head pose အပေါ် offset တစ်ခုထားပါ။ နာမည်ကို ပြောင်းလဲနိုင်စေလိုပါက plugin configuration သို့မဟုတ် ROS 2 topic မှ label text ကို သတ်မှတ်နိုင်သည်။ ပုံပေါ်စေရန်သာလိုလျှင် avatar ကိုယ်ထည်အပေါ် text image ပါသော plane တစ်ခုတပ်ခြင်းလည်း ရိုးရှင်းသော အစားထိုးနည်းဖြစ်သည်။
 
-Gazebo Harmonic `actor` သည် skeleton animation နှင့် SDF ထဲမှ scripted trajectory ကို ပြနိုင်သည်။ အောက်ပါ fragment ကို world SDF ၏ `<world>` အတွင်း ထည့်ပြီး `human.dae` နှင့် `walk.dae` ကို မိမိ၏ asset path ဖြင့် အစားထိုးပါ။ Skin နှင့် animation skeleton များ ကိုက်ညီရမည်။
+## $\color{red}{\text{Head နှင့် Controller အတိုင်း Fake Avatar ရွှေ့ရန်}}$
 
-```xml
-<actor name="human_actor">
-  <skin>
-    <filename>path/to/human.dae</filename>
-    <scale>1.0</scale>
-  </skin>
-  <animation name="walk">
-    <filename>path/to/walk.dae</filename>
-    <interpolate_x>true</interpolate_x>
-  </animation>
-</actor>
-```
-
-Actor ၏ တည်နေရာလမ်းကြောင်းကို `<script>` အပိုင်းတွင် waypoint များဖြင့် ကြိုတင်သတ်မှတ်နိုင်သည်။ ၎င်းသည် VR အသုံးပြုသူ၏ လှုပ်ရှားမှုကို မဖတ်ဘဲ simulation animation ကိုသာ ပြသသည်။
-
-## $\color{red}{\text{VR User ကို အချိန်နှင့်တပြေးညီ လှုပ်ရှားစေရန်}}$
-
-VR သုံးသူကို live avatar အဖြစ် ပြလိုပါက အောက်ပါ data flow ကို တည်ဆောက်ရမည်။
-
-1. OpenXR runtime သို့မဟုတ် VR plugin မှ headset pose နှင့် controller pose/button များကို ရယူပါ။
-2. Plugin က ROS 2 topic များ မထုတ်ပေးပါက OpenXR input ကို ROS 2/Gazebo သို့ ပို့ပေးမည့် bridge ကို ထည့်ပါ။
-3. Coordinate frame, origin, scale နှင့် pose offset များကို Gazebo world နှင့် ကိုက်ညီအောင် ပြောင်းပါ။
-4. Gazebo system plugin သို့မဟုတ် ROS 2 control node က avatar model/actor ၏ pose ကို update လုပ်ပါ။
-5. HMD pose ဖြင့် ဦးခေါင်း၊ controller pose ဖြင့် လက်များကို လှုပ်ရှားစေပါ။ ကိုယ်ထည်/ခြေထောက် လှုပ်ရှားမှု လိုအပ်ပါက IK သို့မဟုတ် သီးခြား body tracking ဖြင့် ခန့်မှန်းပါ။
+1. OpenXR runtime သို့မဟုတ် VR plugin မှ HMD နှင့် ဘယ်/ညာ controller pose များကို ရယူပါ။
+2. OpenXR coordinate frame နှင့် Gazebo world frame မတူနိုင်သောကြောင့် axis၊ origin နှင့် scale ကို တစ်ကြိမ်တည်း မှန်ကန်စွာ ပြောင်းပါ။
+3. HMD pose ကို avatar ၏ head visual သို့ တိုက်ရိုက်လိုက်စေပါ။
+4. Controller pose များကို hand visual များသို့ တိုက်ရိုက်လိုက်စေပါ။ လက်မောင်းကို ပခုံးမှ hand အထိ cylinder/line visual ဖြင့် ဆက်ပြနိုင်ပြီး IK မလိုပါ။
+5. Torso ကို head အောက်တွင် fixed offset ထားပါ။ လိုချင်ပါက HMD yaw ကိုသာ လိုက်စေပြီး body pose ကို ရိုးရှင်းစွာ ထားပါ။
+6. Floating name label ကို head အပေါ်တွင် သတ်မှတ်ထားသော offset ဖြင့် လိုက်ရွှေ့ပါ။
 
 ```mermaid
 flowchart LR
-    A["OpenXR headset နှင့် controller"] --> B["Pose input bridge"]
-    B --> C["Coordinate frame နှင့် origin ပြောင်းရန်"]
-    C --> D["Gazebo plugin သို့မဟုတ် ROS 2 node"]
-    D --> E["Human model / actor ကို update"]
-    E --> F["Gazebo VR view ထဲတွင် avatar ပြ"]
-    G["Body tracker မရှိပါက"] --> H["ခေါင်းနှင့် လက်သာ တိုက်ရိုက်ရ"]
-    H --> D
+    A["OpenXR HMD pose"] --> B["Coordinate conversion"]
+    C["OpenXR controller poses"] --> B
+    B --> D["Gazebo update plugin/node"]
+    D --> E["Head visual follows HMD"]
+    D --> F["Hand visuals follow controllers"]
+    D --> G["Fake torso and arm visuals"]
+    D --> H["Name label above head"]
     classDef input fill:#e3f2fd,stroke:#1565c0,color:#0d47a1
     classDef processing fill:#fff3e0,stroke:#ef6c00,color:#4e342e
-    classDef output fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
-    class A,G,H input
-    class B,C,D processing
-    class E,F output
+    classDef avatar fill:#e8f5e9,stroke:#2e7d32,color:#1b5e20
+    class A,C input
+    class B,D processing
+    class E,F,G,H avatar
 ```
 
-Gazebo Sim `Actor` API တွင် trajectory pose ကို programmatically update လုပ်နိုင်သော်လည်း ၎င်းကို ခေါ်မည့် Gazebo system plugin သို့မဟုတ် bridge ကို သီးခြားရေးသား/ရွေးချယ်ရန် လိုသည်။ HMD/controller pose ကို Gazebo camera အတွက် အသုံးပြုထားခြင်းတစ်ခုတည်းဖြင့် human model ကို world ထဲ အလိုအလျောက် ဖန်တီးမပေးပါ။ ထို့အတူ OpenXR GUI plugin တိုင်းတွင် avatar output ပါသည်ဟု မယူဆပါနှင့်။
+ဤပုံစံတွင် body tracking မရှိသော်လည်း ပြဿနာမဟုတ်ပါ။ ကိုယ်ထည်နှင့် လက်မောင်းများသည် အနီးစပ်ဆုံးပြသသော fake visuals ဖြစ်ပြီး၊ OpenXR GUI plugin တိုင်းက avatar model ကို အလိုအလျောက် ဖန်တီးပေးသည်ဟု မယူဆပါနှင့်။ Head/controller pose ကို Gazebo model/actor သို့ ပို့မည့် plugin သို့မဟုတ် ROS 2 node ကို သီးခြားရွေးချယ်/ရေးသားရန် လိုသည်။
 
-## $\color{red}{\text{ဤ Project အတွက် အကြံပြုထားသော အစီအစဉ်}}$
+## $\color{red}{\text{ဤ Project အတွက် အကြံပြုထားသော ပထမအဆင့်}}$
 
-Ubuntu 22.04၊ ROS 2 Humble နှင့် Gazebo Harmonic တွင် ပထမဦးစွာ static visual-only human model ကို world ထဲ ထည့်ပြီး scale/pose ကို စစ်ပါ။ ထို့နောက် OpenXR plugin မှ HMD နှင့် လက် pose များကို ရနိုင်ကြောင်း အတည်ပြုပြီး head-and-hands avatar ကို update လုပ်ပါ။ Full-body avatar နှင့် collision/physics interaction ကို နောက်အဆင့်တွင် သီးခြားထည့်ပါ။
+Ubuntu 22.04၊ ROS 2 Humble နှင့် Gazebo Harmonic တွင် ပထမဦးစွာ visual-only human model နှင့် Entity Tree name ကို ထည့်ပါ။ ထို့နောက် OpenXR မှ HMD/controller pose များ ရနိုင်ကြောင်း စစ်ပြီး head/hand visuals နှင့် name label ကို update လုပ်ပါ။ Body tracking၊ IK နှင့် physics collision ကို မထည့်ဘဲထားနိုင်သည်။
 
 ဤ avatar feature သည် [01_how_to_configure.md](./01_how_to_configure.md) ရှိ PCVR view၊ [02_interact.md](./02_interact.md) ရှိ GUI interaction၊ [03_teleoperation.md](./03_teleoperation.md) ရှိ PX4 teleoperation တို့မှ သီးခြားလုပ်ဆောင်ချက်ဖြစ်သည်။
 
 References:
 - [Gazebo Harmonic actors](https://gazebosim.org/docs/harmonic/actors/)
-- [Gazebo Sim 8 Actor API](https://gazebosim.org/api/sim/8/classgz_1_1sim_1_1Actor.html)
+- [Gazebo Rendering 8 text geometry](https://gazebosim.org/api/rendering/8/text_geom.html)
 - [ROS 2 Humble ros_gz_sim](https://docs.ros.org/en/humble/p/ros_gz_sim/)
